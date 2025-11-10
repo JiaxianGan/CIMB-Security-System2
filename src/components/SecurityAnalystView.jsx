@@ -14,6 +14,60 @@ import AlertAnalyzer from './AlertAnalyzer';
 import NotificationSystem from './NotificationSystem';
 import 'react-datepicker/dist/react-datepicker.css';
 
+const RISK_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+const getSeverityLevel = (value) => {
+  if (value > 10) return "High";
+  if (value > 6) return "Medium";
+  if (value > 3) return "Elevated";
+  return "Low";
+};
+const getSeverityMessage = (value) => {
+  if (value > 10) return "Spike in login anomalies and unusual access patterns detected.";
+  if (value > 6) return "Noticeable suspicious behavior. Monitor activity closely.";
+  if (value > 3) return "Moderate unusual behavior. Possible early anomalies.";
+  return "Normal behavior activity.";
+};
+const UserBehaviorTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length > 0) {
+    const data = payload[0].payload;
+    const total = data.normal + data.suspicious;
+    const percent = ((data.suspicious / total) * 100).toFixed(1);
+    const severity = getSeverityLevel(data.suspicious);
+
+    return (
+      <div
+        style={{
+          background: "rgba(15, 23, 42, 0.95)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          padding: "12px 16px",
+          borderRadius: "12px",
+          color: "white",
+          minWidth: "200px",
+          fontSize: "0.85rem",
+        }}
+      >
+        <strong style={{ fontSize: "0.9rem" }}>{data.hour}</strong>
+        <hr style={{ margin: "6px 0", opacity: 0.3 }} />
+        <p>Suspicious Events: <strong>{data.suspicious}</strong></p>
+        <p>Normal Events: <strong>{data.normal}</strong></p>
+        <p>Suspicious Ratio: <strong>{percent}%</strong></p>
+        <p>Severity: <strong>{severity}</strong></p>
+        <p style={{ marginTop: "6px", opacity: 0.7 }}>
+          {getSeverityMessage(data.suspicious)}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+const kpiBoxStyle = {
+  background: 'rgba(255,255,255,0.05)',
+  padding: '10px 16px',
+  borderRadius: '10px',
+  color: 'white',
+  fontSize: '0.85rem'
+};
+
 // ============================================================================
 // ALERT MONITORING HOOK (Read-only for Security Analyst)
 // ============================================================================
@@ -353,97 +407,322 @@ const SecurityAnalystView = ({
       </div>
 
       {/* ====================================================================== */}
-      {/* USER BEHAVIOR & DNS ANALYTICS */}
-      {/* ====================================================================== */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 1fr',
-        gap: '1.5rem',
-        width: '100%',
-        alignItems: 'start'
-      }}>
-        {/* User Behavior Analysis */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '24px',
-          padding: '2rem',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-          height: '100%'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <div style={{
-              width: '4px',
-              height: '28px',
-              background: 'linear-gradient(180deg, #8b5cf6 0%, #6366f1 100%)',
-              borderRadius: '4px'
-            }} />
-            <h3 className="text-xl font-bold text-white">User Behavior Analysis</h3>
-          </div>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={userBehaviorData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ hour, suspicious }) => `${hour}: ${suspicious}`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="suspicious"
-              >
-                {userBehaviorData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={
-                    entry.suspicious > 10 ? '#ef4444' :
-                    entry.suspicious > 6  ? '#f59e0b' :
-                    entry.suspicious > 3  ? '#3b82f6' :
-                                            '#10b981'
-                  } />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* DNS Protection */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '24px',
-          padding: '2rem',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-          height: '100%'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <div style={{
-              width: '4px',
-              height: '28px',
-              background: 'linear-gradient(180deg, #3b82f6 0%, #06b6d4 100%)',
-              borderRadius: '4px'
-            }} />
-            <h3 className="text-xl font-bold text-white">DNS Protection Statistics</h3>
-          </div>
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={dnsFilteringData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="category" stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <YAxis stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <Tooltip 
-                contentStyle={{ 
-                  background: 'rgba(15, 23, 42, 0.95)', 
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  borderRadius: '12px',
-                  color: 'white'
+            {/* USER BEHAVIOR & DNS ANALYTICS - NEW SECTION WITH TWO COLUMNS */}
+            {/* ====================================================================== */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr',  // two equal columns
+              gap: '1.5rem',
+              width: '100%',
+              alignItems: 'start'              // aligns items vertically top
+            }}>
+              {/* USER BEHAVIOR ANALYSIS */}
+              <div
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)",
+                  backdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "24px",
+                  padding: "2rem",
+                  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
-              />
-              <Bar dataKey="blocked" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    marginBottom: "1.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "4px",
+                      height: "28px",
+                      background: "linear-gradient(180deg, #3b82f6 0%, #06b6d4 100%)",
+                      borderRadius: "4px",
+                    }}
+                  />
+                  <h3 className="text-xl font-bold text-white">User Behavior Analysis</h3>
+                </div>
+      
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Tooltip
+                      formatter={(value, name, entry) => [
+                        `${value}%`,
+                        `${entry.payload.behavior} (${entry.payload.risk} risk)`,
+                      ]}
+                      contentStyle={{
+                        background: "rgba(8,12,20,0.95)",
+                        border: "1px solid rgba(59,130,246,0.6)",
+                        borderRadius: "12px",
+                        color: "#f9fafb",
+                        fontSize: "0.9rem",
+                        fontWeight: "600",
+                        padding: "8px 12px",
+                        boxShadow: "0 0 10px rgba(59,130,246,0.4)",
+                      }}
+                      cursor={{ fill: "rgba(59,130,246,0.1)" }}
+                    />
+      
+                    <Pie
+                      data={userBehaviorData}
+                      dataKey="value"
+                      nameKey="behavior"
+                      innerRadius={70}
+                      outerRadius={110}
+                      paddingAngle={3}
+                      label={(entry) => `${entry.behavior}: ${entry.value}%`}
+                    >
+                      {userBehaviorData.map((entry, index) => (
+                        <Cell
+                          key={index}
+                          fill={
+                            entry.risk === "high"
+                              ? "#ef4444"
+                              : entry.risk === "medium"
+                              ? "#f59e0b"
+                              : "#10b981"
+                          }
+                        />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+      
+                {/* CENTER KPI */}
+                <div
+                  style={{
+                    textAlign: "left",
+                    color: "white",
+                    marginTop: "0.5rem",
+                    marginBottom: "0.5rem",
+                    fontSize: "1.1rem",
+                    fontWeight: "bold",
+                    lineHeight: "1.4",
+                  }}
+                >
+                  Risk Level:{" "}
+                  {userBehaviorData.some((i) => i.risk === "high")
+                    ? "Elevated"
+                    : "Normal"}
+                </div>
+      
+                {/* BEHAVIOR DETAILS */}
+                <div style={{ marginTop: "1rem", color: "white" }}>
+                  <strong>Behavior Indicators:</strong>
+                  <ul style={{
+                    fontSize: "0.85rem",
+                    marginTop: "0.5rem",
+                    color: "white",
+                    opacity: 1.0,
+                    lineHeight: "1.4",
+                  }}>
+                    {userBehaviorData
+                      .flatMap((item) => item.examples)
+                      .slice(0, 5)
+                      .map((ex, idx) => (
+                        <li key={idx}>• {ex}</li>
+                      ))}
+                  </ul>
+                </div>
+      
+                {/* TRENDS */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    marginTop: "1rem",
+                    flexWrap: "wrap",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  {userBehaviorData.map((item, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: "6px",
+                        background: "rgba(255,255,255,0.05)",
+                        fontSize: "0.75rem",
+                        color: "white",
+                        marginRight: "6px",
+                        marginBottom: "6px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {item.behavior} {item.trend > 0 ? "↑" : "↓"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+      
+              {/* DNS Protection - RIGHT */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '24px',
+                padding: '2rem',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                  <div style={{
+                    width: '4px',
+                    height: '28px',
+                    background: 'linear-gradient(180deg, #3b82f6 0%, #06b6d4 100%)',
+                    borderRadius: '4px'
+                  }} />
+                  <h3 className="text-xl font-bold text-white">DNS Protection Statistics</h3>
+                </div>
+      
+                {/* KPI SUMMARY */}
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      
+                  <div style={kpiBoxStyle}>
+                    Total Blocked: {
+                      dnsFilteringData
+                        .filter(item => item && item.blocked)
+                        .reduce((a,b)=> a + b.blocked, 0)
+                    }
+                  </div>
+      
+                  <div style={kpiBoxStyle}>
+                    Highest Threat: {
+                      dnsFilteringData
+                        .filter(item => item && item.category)
+                        .sort((a,b)=> b.blocked - a.blocked)[0]?.category ?? "N/A"
+                    }
+                  </div>
+      
+                  <div style={kpiBoxStyle}>
+                    Rising Threat Categories: {
+                      dnsFilteringData
+                        .filter(item => item && typeof item.trend === "number" && item.trend > 0)
+                        .length
+                    }
+                  </div>
+      
+                </div>
+      
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={[...dnsFilteringData].sort((a,b)=> b.blocked - a.blocked)}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis
+                      dataKey="category"
+                      stroke="rgba(255,255,255,0.5)"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis
+                      stroke="rgba(255,255,255,0.5)"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => [
+                        value,
+                        name === "blocked" ? "Blocked Requests" : "Allowed Requests"
+                      ]}
+                      contentStyle={{
+                        background: 'rgba(15,23,42,0.95)',
+                        border: '1px solid rgba(59,130,246,0.3)',
+                        borderRadius: '12px',
+                        color: 'white',
+                        width: '240px'
+                      }}
+                      cursor={{ fill: 'rgba(59,130,246,0.1)' }}
+                    />
+      
+                    {/* Allowed Requests */}
+                    <Bar
+                      dataKey="allowed"
+                      fill="#10b981"
+                      stackId="dns"
+                      radius={[8, 8, 0, 0]}
+                      name="Allowed Requests"
+                    />
+      
+                    {/* Blocked Requests */}
+                    <Bar
+                      dataKey="blocked"
+                      stackId="dns"
+                      name="Blocked Requests"
+                    >
+                      {dnsFilteringData
+                      .filter(entry => entry && entry.category)
+                      .map((entry, idx) => (
+                        <Cell
+                          key={idx}
+                          fill={
+                            entry.trend > 0
+                              ? "#ef4444"   // threat trending up
+                              : "#3b82f6"   // stable / normal
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+      
+                {/* BLOCK RATE SUMMARY */}
+                <div style={{ marginTop:'1rem', color:'white' }}>
+                  <p>
+                    <strong>Average Block Rate:</strong>{" "}
+                    {(
+                      dnsFilteringData.reduce((a,b)=> a + b.blocked,0) /
+                      dnsFilteringData.reduce((a,b)=> a + b.allowed,0) * 100
+                    ).toFixed(2)}%
+                  </p>
+                </div>
+      
+                {/* THREAT SEVERITY */}
+                <div style={{ display:'flex', gap:'0.5rem', marginTop:'1rem', flexWrap:"wrap" }}>
+                  {dnsFilteringData
+                    ?.filter(item => item && item.category)
+                    .map((item, idx) => (
+                    <span key={idx} style={{
+                      padding:"4px 10px",
+                      borderRadius:"6px",
+                      fontSize:"0.75rem",
+                      fontWeight:"600",
+                      background: item.severity === "high"
+                        ? "rgba(239,68,68,0.2)"
+                        : item.severity === "medium"
+                        ? "rgba(245,158,11,0.2)"
+                        : "rgba(16,185,129,0.2)",
+                      color: item.severity === "high"
+                        ? "#ef4444"
+                        : item.severity === "medium"
+                        ? "#f59e0b"
+                        : "#10b981"
+                    }}>
+                      {item.category}: {item.severity}
+                    </span>
+                  ))}
+                </div>
+      
+                {/* TOP THREAT DOMAINS */}
+                <div style={{ marginTop:'1rem', color:'white' }}>
+                  <strong>Top Threat Domains:</strong>
+                  <ul style={{ fontSize:'0.85rem', marginTop:'0.5rem', opacity:0.8 }}>
+                    {dnsFilteringData
+                      .flatMap(item => item?.topDomains ?? [])
+                      .slice(0, 5)
+                      .map((domain, idx)=>(
+                        <li key={idx}>• {domain}</li>
+                    ))}
+                  </ul>
+                </div>
+      
+              </div>
+            </div>
 
       {/* ====================================================================== */}
       {/* SECURITY EVENTS LOG */}

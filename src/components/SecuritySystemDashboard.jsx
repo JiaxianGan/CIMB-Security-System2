@@ -170,7 +170,9 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
   // Refs for maintaining data between renders
   const trafficDataRef = useRef([]);
   const pollingIntervalRef = useRef(null);
+  const lastNarrativeUpdateRef = useRef(Date.now());
 
+  // KPI Metrics
   const [kpiMetrics, setKpiMetrics] = useState({
     threatReduction: 0,
     policyCompliance: 0,
@@ -178,6 +180,7 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
     weeklyAttackGrowth: 0
   });
 
+  // Executive summary
   const [weeklyAttackSummary, setWeeklyAttackSummary] = useState([]);
   const [execNarrative, setExecNarrative] = useState("");
 
@@ -197,6 +200,10 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
   const userLatenciesRef = ref(rtdb, 'user_latencies');        // User latency data
   const activeSessionsRef = ref(rtdb, 'active_sessions');      // Active user sessions
   const connectedUsersRef = ref(rtdb, 'connected_users_count'); // Count of connected users
+  const kpiMetricsRef = ref(rtdb, "security_stats/kpi_metrics");
+  const weeklyAttackSummaryRef = ref(rtdb, "security_stats/weekly_attack_summary");
+  const execNarrativeRef = ref(rtdb, "security_stats/exec_narrative");
+
 
   const LIMITS = {
     active_traffic: 40,
@@ -784,6 +791,31 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
     });
     unsubs.push(latUnsub);
 
+    // KPI Metrics
+    const kpiUnsub = onValue(kpiMetricsRef, (snap) => {
+      const data = snap.val();
+      if (data) {
+        setKpiMetrics(data);
+      }
+    });
+    unsubs.push(kpiUnsub);
+
+    // Weekly Attack Summary
+    const weeklySummaryUnsub = onValue(weeklyAttackSummaryRef, (snap) => {
+      const data = snap.val();
+      setWeeklyAttackSummary(Array.isArray(data) ? data : Object.values(data || {}));
+    });
+    unsubs.push(weeklySummaryUnsub);
+
+    // Executive Narrative
+    const narrativeUnsub = onValue(execNarrativeRef, (snap) => {
+      const data = snap.val();
+      if (data?.text) {
+        setExecNarrative(data.text);
+      }
+    });
+    unsubs.push(narrativeUnsub);
+
     // system stats (single object, no limit)
     const statsUnsub = onValue(systemStatsRef, (snap) => {
       const data = snap.val();
@@ -797,6 +829,26 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
       setSystemStats(prev => ({ ...prev, activeConnections: val }));
     });
     unsubs.push(connUnsub);
+
+    // Ensure manager intelligence nodes exist (schema guard)
+    const managerBaseRef = ref(rtdb, "security_stats");
+    const managerUnsub = onValue(managerBaseRef, async (snap) => {
+      const val = snap.val() || {};
+
+      // Create only if missing (NEVER overwrite)
+      if (!val.kpi_metrics) {
+        await set(ref(rtdb, "security_stats/kpi_metrics"), {});
+      }
+
+      if (!val.weekly_attack_summary) {
+        await set(ref(rtdb, "security_stats/weekly_attack_summary"), []);
+      }
+
+      if (!val.exec_narrative) {
+        await set(ref(rtdb, "security_stats/exec_narrative"), { text: "" });
+      }
+    });
+    unsubs.push(managerUnsub);
 
     // cleanup
     return () => {
@@ -872,6 +924,28 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
         // blocked attempts occasionally
         if (tick % 12 === 0 && Math.random() < 0.3) {
           await generateRandomBlockedAttempt();
+        }
+
+        // Executive Narrative Fallback
+        if (tick % 30 === 0) {
+          if (!execNarrative || execNarrative.trim().length < 10) {
+            const delta = kpiMetrics.weeklyAttackGrowth;
+            const departments = [
+              "Marketing VLAN",
+              "Finance VLAN",
+              "HR VLAN",
+              "R&D VLAN",
+              "Sales VLAN",
+              "IT Support VLAN"
+            ];
+            const dept = departments[Math.floor(Math.random() * departments.length)];
+
+            setExecNarrative(
+              `Alert volume ${delta < 0 ? "decreased" : "increased"} ${Math.abs(delta)}% compared to last week. ` +
+              `Most activity originates from ${dept}. ` +
+              `Predicted spike on Thursday based on current velocity.`
+            );
+          }
         }
 
         // slowly grow stats every ~20s
