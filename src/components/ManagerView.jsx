@@ -89,6 +89,7 @@ const ManagerView = ({
   setReportStartDate,
   reportEndDate,
   setReportEndDate,
+  execNarrative
 }) => {
   
   // Alert Monitoring Hook (Read-only for Manager)
@@ -148,7 +149,31 @@ const ManagerView = ({
 
   return (
     <div className="space-y-6">
-      
+      {/* =========================== */}
+      {/* EXECUTIVE SUMMARY (Narrative) */}
+      {/* =========================== */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.05) 100%)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '20px',
+        padding: '1.5rem',
+        boxShadow: '0 12px 35px rgba(0,0,0,0.25)',
+        marginTop: '1.5rem'
+      }}>
+        <h3 className="text-lg font-bold text-white" style={{marginBottom:'0.75rem'}}>
+          Executive Summary
+        </h3>
+
+        <p style={{
+          color:'rgba(255,255,255,0.85)',
+          fontSize:'0.85rem',
+          lineHeight:'1.4'
+        }}>
+          {execNarrative || "Generating summary..."}
+        </p>
+      </div>
+
       {/* ====================================================================== */}
       {/* SYSTEM STATISTICS CARDS */}
       {/* ====================================================================== */}

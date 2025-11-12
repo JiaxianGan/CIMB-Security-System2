@@ -20,7 +20,7 @@ import AdminView from './AdminView';
 import ManagerView from './ManagerView';
 import SecurityAnalystView from './SecurityAnalystView';
 import ReportPreviewModal from "./ReportPreviewModal";
-import { rtdb } from './firebase'; // Adjust path if needed
+import { db, rtdb } from './firebase'; // Adjust path if needed
 
 // ============================================================================
 // SVG ICON COMPONENTS
@@ -808,7 +808,7 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
     unsubs.push(weeklySummaryUnsub);
 
     // Executive Narrative
-    const narrativeUnsub = onValue(execNarrativeRef, (snap) => {
+    const narrativeUnsub = onValue(ref(rtdb, "exec_narrative"), (snap) => {
       const data = snap.val();
       if (data?.text) {
         setExecNarrative(data.text);
@@ -926,26 +926,12 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
           await generateRandomBlockedAttempt();
         }
 
-        // Executive Narrative Fallback
-        if (tick % 30 === 0) {
-          if (!execNarrative || execNarrative.trim().length < 10) {
-            const delta = kpiMetrics.weeklyAttackGrowth;
-            const departments = [
-              "Marketing VLAN",
-              "Finance VLAN",
-              "HR VLAN",
-              "R&D VLAN",
-              "Sales VLAN",
-              "IT Support VLAN"
-            ];
-            const dept = departments[Math.floor(Math.random() * departments.length)];
-
-            setExecNarrative(
-              `Alert volume ${delta < 0 ? "decreased" : "increased"} ${Math.abs(delta)}% compared to last week. ` +
-              `Most activity originates from ${dept}. ` +
-              `Predicted spike on Thursday based on current velocity.`
-            );
-          }
+        // Executive narrative auto-update every ~60 seconds
+        if (tick % 45 === 0) {
+          await set(ref(rtdb, "exec_narrative"), {
+            text: generateNarrativeSummary(),
+            updatedAt: Date.now()
+          });
         }
 
         // slowly grow stats every ~20s
@@ -1179,6 +1165,7 @@ switch (user.role) {
         setReportStartDate={setReportStartDate}
         reportEndDate={reportEndDate}
         setReportEndDate={setReportEndDate}
+        execNarrative={execNarrative}
       />
     );
     break;
@@ -1471,5 +1458,14 @@ switch (user.role) {
     </AnimatedBackground>
   );
 };
+
+function generateNarrativeSummary() {
+  const changes = Math.floor(Math.random() * 20) + 5;
+  const dept = ["Finance", "R&D", "Marketing", "Engineering"][Math.floor(Math.random()*4)];
+  const riskShift = ["increased", "spiked", "stabilized", "decreased"][Math.floor(Math.random()*4)];
+  const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][Math.floor(Math.random()*5)];
+  
+  return `Alert volume ${riskShift} by ${changes}% compared to last week. Most suspicious activity originated from VLAN-${dept}. Predicted threat spike on ${day} based on current velocity.`;
+}
 
 export default SecuritySystemDashboard;
