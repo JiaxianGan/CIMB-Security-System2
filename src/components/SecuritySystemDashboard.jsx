@@ -170,7 +170,10 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
   // Refs for maintaining data between renders
   const trafficDataRef = useRef([]);
   const pollingIntervalRef = useRef(null);
-  const lastNarrativeUpdateRef = useRef(Date.now());
+  const lastUserBehaviorUpdate = useRef(Date.now());
+  const lastExecutiveNarrativeUpdate = useRef(Date.now());
+  const lastKpiUpdate = useRef(Date.now());
+  const lastWeeklySummaryUpdate = useRef(Date.now());
 
   // KPI Metrics
   const [kpiMetrics, setKpiMetrics] = useState({
@@ -225,73 +228,56 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
       try {
         console.log('Initializing Firebase data...');
         
-        // Static data for charts that don't change frequently
         const staticData = {
           user_behavior: [
-          {
-            behavior: "Normal Activity",
-            value: 61,
-            risk: "low",
-            trend: -4,
-            examples: ["Regular login", "Normal browsing"]
-          },
-          {
-            behavior: "Suspicious Activity",
-            value: 26,
-            risk: "medium",
-            trend: +3,
-            examples: ["Unusual access hours", "Repeated retries"]
-          },
-          {
-            behavior: "Blocked Attempts",
-            value: 13,
-            risk: "high",
-            trend: +5,
-            examples: ["Threat domains", "Privilege escalation attempts"]
-          }
-        ],
+            {
+              behavior: "Normal Activity",
+              value: 61,
+              risk: "low",
+              trend: -4,
+              examples: ["Regular login", "Normal browsing"]
+            },
+            {
+              behavior: "Suspicious Activity",
+              value: 26,
+              risk: "medium",
+              trend: +3,
+              examples: ["Unusual access hours", "Repeated retries"]
+            },
+            {
+              behavior: "Blocked Attempts",
+              value: 13,
+              risk: "high",
+              trend: +5,
+              examples: ["Threat domains", "Privilege escalation attempts"]
+            }
+          ],
           dns_filtering: [
-        {
-          category: 'Malware',
-          blocked: 142,
-          allowed: 480,
-          severity: 'high',
-          trend: +5,
-          topDomains: ['malicious-download.net', 'payload-dropper.io']
-        },
-        {
-          category: 'Phishing',
-          blocked: 89,
-          allowed: 392,
-          severity: 'medium',
-          trend: +3,
-          topDomains: ['login-verify-mail.com', 'secure-bank-check.net']
-        },
-        {
-          category: 'Adult',
-          blocked: 234,
-          allowed: 556,
-          severity: 'low',
-          trend: -4,
-          topDomains: ['content-stream.xyz', 'mediahub-direct.net']
-        },
-        {
-          category: 'Social',
-          blocked: 67,
-          allowed: 390,
-          severity: 'low',
-          trend: -1,
-          topDomains: ['chatspot.social', 'friendcircle.link']
-        },
-        {
-          category: 'Ads',
-          blocked: 156,
-          allowed: 612,
-          severity: 'medium',
-          trend: +3,
-          topDomains: ['ads-banner.tech', 'tracker-ads.io']
-        }
-      ],
+            {
+              category: 'Malware',
+              blocked: 142,
+              allowed: 480,
+              severity: 'high',
+              trend: +5,
+              topDomains: ['malicious-download.net', 'payload-dropper.io']
+            },
+            {
+              category: 'Phishing',
+              blocked: 89,
+              allowed: 392,
+              severity: 'medium',
+              trend: +3,
+              topDomains: ['login-verify-mail.com', 'secure-bank-check.net']
+            },
+            {
+              category: 'Adult',
+              blocked: 234,
+              allowed: 556,
+              severity: 'low',
+              trend: -4,
+              topDomains: ['content-stream.xyz', 'mediahub-direct.net']
+            }
+          ],
           system_stats: {
             totalUsers: 1247,
             activeConnections: 0,
@@ -300,16 +286,23 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
           }
         };
 
-        // Write static data to Firebase
-        await set(userBehaviorRef, staticData.user_behavior);
-        await set(dnsFilteringRef, staticData.dns_filtering);
-        await set(systemStatsRef, staticData.system_stats);
-        
+        // WRITE DATA ONLY IF EMPTY
+        const ubSnap = await get(userBehaviorRef);
+        if (!ubSnap.exists()) await set(userBehaviorRef, staticData.user_behavior);
+
+        const dnsSnap = await get(dnsFilteringRef);
+        if (!dnsSnap.exists()) await set(dnsFilteringRef, staticData.dns_filtering);
+
+        const statsSnap = await get(systemStatsRef);
+        if (!statsSnap.exists()) await set(systemStatsRef, staticData.system_stats);
+
+        console.log("✓ Firebase initial static data loaded (once)");
+
         setIsConnected(true);
-        console.log('✓ Firebase initialized successfully');
+
       } catch (error) {
-        console.error('Firebase initialization error:', error);
-        setError('Failed to connect to Firebase: ' + error.message);
+        console.error("Firebase initialization error:", error);
+        setError("Failed to connect to Firebase: " + error.message);
       }
     };
 
@@ -698,6 +691,121 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
   }, [isConnected, rtdb, userLatenciesRef, alertsRef, activeSessionsRef]);
 
   
+  // ----------------------------------------------------------------------------
+  // FUNCTION: Generate Random Narrative Summary
+  // ----------------------------------------------------------------------------
+  const generateNarrativeSummary = useCallback(async () => {
+    if (!isConnected) return;
+
+    try {
+      const changes = Math.floor(Math.random() * 20) + 5;
+      const dept = ["Finance", "R&D", "Marketing", "Engineering"][Math.floor(Math.random() * 4)];
+      const riskShift = ["increased", "spiked", "stabilized", "decreased"][Math.floor(Math.random() * 4)];
+      const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][Math.floor(Math.random() * 5)];
+
+      const newNarrative = {
+        text: `Alert volume ${riskShift} by ${changes}% compared to last week. Most suspicious activity originated from VLAN-${dept}. Predicted threat spike on ${day} based on current velocity.`,
+        updatedAt: Date.now()
+      };
+
+      // Upload to Realtime Database
+      const narrativeRef = ref(rtdb, "exec_narrative");
+      await set(narrativeRef, newNarrative);
+
+      // console.log("✓ Executive narrative updated");
+    } catch (error) {
+      console.error("Error generating narrative summary:", error);
+    }
+  }, [isConnected, rtdb]);
+
+  // ----------------------------------------------------------------------------
+  // FUNCTION: Generate Random KPI Metrics
+  // ----------------------------------------------------------------------------
+  const generateKpiMetrics = useCallback(async () => {
+    if (!isConnected) return;
+
+    try {
+      const newKpi = {
+        threatReduction: (Math.random() * 30 + 20).toFixed(1),   // 20–50%
+        policyCompliance: (Math.random() * 15 + 80).toFixed(1),  // 80–95%
+        falsePositiveRate: (Math.random() * 3 + 1).toFixed(2),   // 1.00–4.00%
+        weeklyAttackGrowth: (Math.random() * 20 - 10).toFixed(1), // -10% → +10%
+        updatedAt: Date.now()
+      };
+
+      await set(ref(rtdb, "security_stats/kpi_metrics"), newKpi);
+
+    } catch (error) {
+      console.error("Error generating KPI metrics:", error);
+    }
+  }, [isConnected, rtdb]);
+
+  // ----------------------------------------------------------------------------
+  // FUNCTION: Generate Random Weekly Attack Summary
+  // ----------------------------------------------------------------------------
+  const generateWeeklyAttackSummary = useCallback(async () => {
+    if (!isConnected) return;
+
+    try {
+      const threatTypes = ["Phishing", "Brute Force", "Malware", "Ransomware", "Botnet", "SQL Injection"];
+      
+      const newSummary = {
+        topThreats: Array.from({ length: 5 }).map(() => {
+          const t = threatTypes[Math.floor(Math.random() * threatTypes.length)];
+          return {
+            name: t,
+            count: Math.floor(Math.random() * 500 + 50), // 50 to 550
+            delta: (Math.random() * 20 - 10).toFixed(1)  // -10% to +10%
+          };
+        }),
+        newIndicators: Math.floor(Math.random() * 12),   // 0–11 new indicators
+        updatedAt: Date.now()
+      };
+
+      await set(ref(rtdb, "security_stats/weekly_attack_summary"), newSummary);
+
+    } catch (error) {
+      console.error("Error generating weekly attack summary:", error);
+    }
+  }, [isConnected, rtdb]);
+
+  // --- USER BEHAVIOR GENERATOR (every 30 seconds) ---
+  const generateUserBehaviorData = useCallback(async () => {
+    if (!isConnected) return;
+
+    try {
+      const now = Date.now();
+      const lastBehaviorUpdateRef = useRef(Date.now());
+      const categories = [
+        { type: "Normal Usage", base: 60 },
+        { type: "Suspicious Login", base: 15 },
+        { type: "File Access Anomaly", base: 10 },
+        { type: "Privilege Misuse", base: 8 },
+        { type: "Data Exfiltration", base: 7 }
+      ];
+
+      // Generate dynamic values
+      const newBehaviorData = categories.map(c => ({
+        category: c.type,
+        value: Math.max(1, Math.floor(c.base + Math.random() * 15 - 7)),
+        risk: c.type === "Data Exfiltration"
+          ? "High"
+          : c.type === "Privilege Misuse"
+          ? "Medium"
+          : "Low",
+        timestamp: now
+      }));
+
+      // Upload to Firebase
+      await set(userBehaviorRef, newBehaviorData);
+
+      console.log("✓ User behavior data updated");
+
+    } catch (err) {
+      console.error("Error generating user behavior data:", err);
+    }
+  }, [isConnected, userBehaviorRef]);
+
   // ============================================================================
   // FIREBASE LISTENERS
   // ============================================================================
@@ -900,6 +1008,7 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
     pollingIntervalRef.current = setInterval(async () => {
       try {
         tick++;
+        const now = Date.now();
 
         // traffic every 3 seconds
         if (tick % 5 === 0) {
@@ -926,12 +1035,31 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
           await generateRandomBlockedAttempt();
         }
 
-        // Executive narrative auto-update every ~60 seconds
-        if (tick % 45 === 0) {
+        // User Behavior every 30 seconds
+        if (now - lastUserBehaviorUpdate.current >= 30000) {
+          await generateUserBehaviorData();
+          lastUserBehaviorUpdate.current = now;
+        }
+
+        // Executive narrative every 45 seconds
+        if (now - lastExecutiveNarrativeUpdate.current >= 45000) {
           await set(ref(rtdb, "exec_narrative"), {
             text: generateNarrativeSummary(),
-            updatedAt: Date.now()
+            updatedAt: now
           });
+          lastExecutiveNarrativeUpdate.current = now;
+        }
+
+        // KPI every 40 seconds
+        if (now - lastKpiUpdate.current >= 40000) {
+          await generateKpiMetrics();
+          lastKpiUpdate.current = now;
+        }
+
+        // Weekly Attack Summary every 50 seconds
+        if (now - lastWeeklySummaryUpdate.current >= 50000) {
+          await generateWeeklyAttackSummary();
+          lastWeeklySummaryUpdate.current = now;
         }
 
         // slowly grow stats every ~20s
@@ -1166,6 +1294,8 @@ switch (user.role) {
         reportEndDate={reportEndDate}
         setReportEndDate={setReportEndDate}
         execNarrative={execNarrative}
+        kpiMetrics={kpiMetrics}
+        weeklyAttackSummary={weeklyAttackSummary}
       />
     );
     break;
@@ -1458,14 +1588,5 @@ switch (user.role) {
     </AnimatedBackground>
   );
 };
-
-function generateNarrativeSummary() {
-  const changes = Math.floor(Math.random() * 20) + 5;
-  const dept = ["Finance", "R&D", "Marketing", "Engineering"][Math.floor(Math.random()*4)];
-  const riskShift = ["increased", "spiked", "stabilized", "decreased"][Math.floor(Math.random()*4)];
-  const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][Math.floor(Math.random()*5)];
-  
-  return `Alert volume ${riskShift} by ${changes}% compared to last week. Most suspicious activity originated from VLAN-${dept}. Predicted threat spike on ${day} based on current velocity.`;
-}
 
 export default SecuritySystemDashboard;
