@@ -55,32 +55,6 @@ const ClockIcon = () => (
   </svg>
 );
 
-// *** NEW ICONS FOR TOP BAR ***
-const PrinterIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polyline points="6 9 6 2 18 2 18 9"/>
-    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-    <rect x="6" y="14" width="12" height="8"/>
-  </svg>
-);
-
-const FileTextIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-    <line x1="16" y1="13" x2="8" y2="13"/>
-    <line x1="16" y1="17" x2="8" y2="17"/>
-    <polyline points="10 9 9 9 8 9"/>
-  </svg>
-);
-
-const UserIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-    <circle cx="12" cy="7" r="4"/>
-  </svg>
-);
-
 // ============================================================================
 // ANIMATED BACKGROUND COMPONENT
 // ============================================================================
@@ -1131,7 +1105,7 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
     try {
       let startTime, endTime;
       const now = Date.now();
-      
+
       if (period === 'custom') {
         if (!startDate || !endDate) {
           setError('Please select a valid date range');
@@ -1156,28 +1130,57 @@ const SecuritySystemDashboard = ({ user, onLogout }) => {
         }
       }
 
+      // --------------------------------------
+      // CLEANING + LIMITING DATA FOR THE MODAL
+      // --------------------------------------
+      const limit = (arr, n = 50) => (Array.isArray(arr) ? arr.slice(0, n) : []);
+
+      const clean = (arr) =>
+        limit(arr).filter((x) => x !== null && x !== undefined);
+
+      const cleanedAlerts = clean(alerts);
+      const cleanedBlocked = clean(blockedAttempts);
+      const cleanedTraffic = clean(trafficData);
+
+      // --------------------------------------
+      // SUMMARY STATISTICS FOR EXECUTIVE VIEW
+      // --------------------------------------
+      const totalFP =
+        cleanedAlerts.reduce((acc, x) => acc + (x.falsePositive ? 1 : 0), 0) +
+        cleanedBlocked.length * 0.4;
+
       const report = {
         period,
         startTime: new Date(startTime).toLocaleString(),
         endTime: new Date(endTime).toLocaleString(),
-        falsePositiveAlerts: Math.floor(Math.random() * 20) + 5,
-        falsePositiveBlocked: Math.floor(Math.random() * 30) + 10,
-        falsePositiveTraffic: Math.floor(Math.random() * 50) + 15,
+
+        // Executive metrics
+        falsePositiveAlerts: cleanedAlerts.length,
+        falsePositiveBlocked: cleanedBlocked.length,
+        falsePositiveTraffic: cleanedTraffic.length,
+        fpSeverityIndex: Math.min(
+          100,
+          Math.round((cleanedAlerts.length * 1.7 + cleanedBlocked.length) / 2)
+        ),
+
+        // Data preview
         details: {
-          alerts: alerts.slice(0, 50),
-          blocked: blockedAttempts.slice(0, 50),
-          traffic: trafficData.slice(0, 50),
+          alerts: cleanedAlerts,
+          blocked: cleanedBlocked,
+          traffic: cleanedTraffic,
         },
       };
 
-      setReportTitle(`${period.charAt(0).toUpperCase() + period.slice(1)} Security Report`);
+      // Update UI
+      setReportTitle(
+        `${period.charAt(0).toUpperCase() + period.slice(1)} Security Report`
+      );
       setReportData(report);
       setReportModalOpen(true);
     } catch (error) {
       setError('Failed to generate report: ' + error.message);
     }
   };
-
 
   // ============================================================================
   // EXPORT FUNCTIONS
@@ -1288,6 +1291,8 @@ switch (user.role) {
         trafficData={trafficData}
         alerts={alerts}
         blockedAttempts={blockedAttempts}
+        userBehaviorData={userBehaviorData}
+        dnsFilteringData={dnsFilteringData}
         generateFalsePositiveReport={generateFalsePositiveReport}
         reportStartDate={reportStartDate}
         setReportStartDate={setReportStartDate}
@@ -1387,33 +1392,6 @@ switch (user.role) {
                   </p>
                 </div>
               </div>
-
-              {/* Print Button */}
-              <button 
-                onClick={() => setReportModalOpen(true)}
-                className="p-2 rounded-lg transition-colors text-white hover:bg-white/10"
-                style={{ background: 'rgba(255, 255, 255, 0.05)' }}
-                title="Print Dashboard"
-              >
-                <PrinterIcon />
-              </button>
-
-              <ReportPreviewModal
-                open={reportModalOpen}
-                onClose={() => setReportModalOpen(false)}
-                rtdb={rtdb}
-              />
-
-              {/* Reports Button */}
-              <button 
-                onClick={() => setReportModalOpen(true)}
-                className="hidden sm:flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors text-white hover:bg-blue-500/20"
-                style={{ background: 'rgba(59, 130, 246, 0.1)' }}
-                title="Generate Reports"
-              >
-                <FileTextIcon />
-                <span className="text-sm font-medium">Reports</span>
-              </button>
 
               {/* Status Badges */}
               <div className="flex items-center space-x-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>

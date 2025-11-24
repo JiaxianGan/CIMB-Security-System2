@@ -8,6 +8,8 @@ export default function ReportPreviewModal({ open, onClose, rtdb }) {
   const [alerts, setAlerts] = useState([]);
 
   useEffect(() => {
+    if (!open) return;
+
     const trafficRef = ref(rtdb, "active_traffic");
     const usageRef = ref(rtdb, "network_usage");
     const alertsRef = ref(rtdb, "alerts");
@@ -27,10 +29,13 @@ export default function ReportPreviewModal({ open, onClose, rtdb }) {
       unsub2();
       unsub3();
     };
-  }, []);
+  }, [open, rtdb]);
 
   if (!open) return null;
 
+  // -------------------------------
+  // EXPORT FUNCTIONS
+  // -------------------------------
   const handleExportCSV = () => {
     let rows = [
       ["Timestamp", "Inbound", "Outbound", "Threats", "Usage(MB)", "Upload", "Download"]
@@ -58,90 +63,150 @@ export default function ReportPreviewModal({ open, onClose, rtdb }) {
   };
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("CIMB Network Security Report", 15, 15);
+    const doc = new jsPDF("p", "pt", "a4");
+    doc.text("CIMB Network Security Report", 40, 40);
 
-    let y = 30;
-    traffic.slice(0, 20).forEach((t, i) => {
-      doc.text(`• ${t.time} | Inbound: ${t.inbound} | Outbound: ${t.outbound} | Threats: ${t.threats}`, 15, y);
-      y += 8;
+    let y = 70;
+    traffic.slice(0, 25).forEach((t, i) => {
+      doc.text(
+        `${t.time} | Inbound: ${t.inbound} | Outbound: ${t.outbound} | Threats: ${t.threats}`,
+        40,
+        y
+      );
+      y += 18;
+      if (y > 780) {
+        doc.addPage();
+        y = 40;
+      }
     });
 
     doc.save("network_report.pdf");
   };
 
   return (
-    <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,.65)",
-      zIndex: 9999,
-      overflowY: "auto",
-      paddingTop: "3rem"
-    }}>
-      <div style={{
-        width: "80%",
-        margin: "auto",
-        background: "#0f172a",
-        padding: "2rem",
-        borderRadius: "12px",
-        color: "white"
-      }}>
-        <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "1rem" }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.7)",
+        zIndex: 999999,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        overflowY: "auto",
+        padding: "3rem 0",
+      }}
+    >
+      <div
+        style={{
+          width: "90%",
+          maxWidth: "1300px", // ⬆ increased width
+          maxHeight: "90vh", // ⬆ increased height
+          background: "#0f172a",
+          padding: "2rem",
+          borderRadius: "14px",
+          color: "white",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <h2 style={{ fontSize: "1.8rem", marginBottom: "1rem", fontWeight: "bold" }}>
           Network Security Report Preview
         </h2>
 
-        <h3 style={{ fontSize: "1rem", opacity: .7 }}>Traffic Snapshot</h3>
-        <div style={{
-          background: "rgba(255,255,255,.05)",
-          borderRadius: "8px",
-          padding: "1rem",
-          marginBottom: "1rem"
-        }}>
-          {traffic.slice(0, 10).map((t, idx) => (
-            <p key={idx} style={{ fontSize: ".8rem", marginBottom: ".2rem" }}>
-              {t.time} | Inbound {t.inbound} | Outbound {t.outbound} | Threats {t.threats}
-            </p>
-          ))}
+        {/* SCROLLABLE CONTENT AREA */}
+        <div
+          style={{
+            overflowY: "auto",
+            paddingRight: "0.5rem",
+            flexGrow: 1, // makes inside content scroll instead of entire modal
+          }}
+        >
+          {/* TRAFFIC */}
+          <h3 style={{ fontSize: "1.2rem", marginTop: "1rem" }}>Traffic Snapshot</h3>
+          <div style={sectionBox}>
+            {traffic.slice(0, 20).map((t, idx) => (
+              <p key={idx} style={rowStyle}>
+                {t.time} | In {t.inbound} | Out {t.outbound} | Threats {t.threats}
+              </p>
+            ))}
+          </div>
+
+          {/* ALERTS */}
+          <h3 style={{ fontSize: "1.2rem", marginTop: "1rem" }}>Alerts Summary</h3>
+          <div style={sectionBox}>
+            {alerts.slice(0, 20).map((a, idx) => (
+              <p
+                key={idx}
+                style={{
+                  ...rowStyle,
+                  color: a.severity === "high" ? "#ef4444" : "white",
+                }}
+              >
+                {a.time} | {a.type} | Severity {a.severity}
+              </p>
+            ))}
+          </div>
+
+          {/* USAGE */}
+          <h3 style={{ fontSize: "1.2rem", marginTop: "1rem" }}>Network Usage Trend</h3>
+          <div style={sectionBox}>
+            {usage.slice(0, 20).map((u, idx) => (
+              <p key={idx} style={rowStyle}>
+                {u.time} | Usage {u.totalUsage} MB | Up {u.uploadSpeed} Mbps | Down{" "}
+                {u.downloadSpeed} Mbps
+              </p>
+            ))}
+          </div>
         </div>
 
-        <h3 style={{ fontSize: "1rem", opacity: .7 }}>Alerts Summary</h3>
-        <div style={{
-          background: "rgba(255,255,255,.05)",
-          borderRadius: "8px",
-          padding: "1rem",
-          marginBottom: "1rem"
-        }}>
-          {alerts.slice(0, 8).map((a, idx) => (
-            <p key={idx} style={{
-              fontSize: ".8rem",
-              color: a.severity === "high" ? "#ef4444" : "white",
-              marginBottom: ".2rem"
-            }}>
-              {a.time} | {a.type} | Severity {a.severity}
-            </p>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", gap: "1rem" }}>
-          <button onClick={handleExportCSV} style={btnStyle}>Export CSV</button>
-          <button onClick={handleExportPDF} style={btnStyle}>Export PDF</button>
-          <button onClick={onClose} style={btnStyleRed}>Close</button>
+        {/* BUTTONS */}
+        <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
+          <button style={btnBlue} onClick={handleExportCSV}>
+            Export CSV
+          </button>
+          <button style={btnBlue} onClick={handleExportPDF}>
+            Export PDF
+          </button>
+          <button style={btnRed} onClick={onClose}>
+            Close
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-const btnStyle = {
-  padding: ".6rem 1rem",
-  background: "rgba(59,130,246,.2)",
-  borderRadius: "6px",
-  cursor: "pointer",
-  color: "white"
+// -------------------------------
+// STYLES
+// -------------------------------
+const sectionBox = {
+  background: "rgba(255,255,255,0.05)",
+  borderRadius: "8px",
+  padding: "1rem",
+  marginBottom: "1.5rem",
+  maxHeight: "260px",
+  overflowY: "auto",
 };
 
-const btnStyleRed = {
-  ...btnStyle,
-  background: "rgba(239,68,68,.25)"
+const rowStyle = {
+  fontSize: ".9rem",
+  marginBottom: ".3rem",
+  borderBottom: "1px solid rgba(255,255,255,0.05)",
+  paddingBottom: ".3rem",
+};
+
+const btnBlue = {
+  padding: "0.7rem 1.2rem",
+  background: "rgba(59,130,246,0.25)",
+  borderRadius: "6px",
+  cursor: "pointer",
+  color: "white",
+  fontWeight: "bold",
+};
+
+const btnRed = {
+  ...btnBlue,
+  background: "rgba(239,68,68,0.35)",
 };

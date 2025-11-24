@@ -77,12 +77,17 @@ const ReportModal = ({ isOpen, onClose, title, reportData, exportCSV, exportPDF 
               <EyeIcon />
             </div>
           </div>
-          <pre className="p-4 rounded-lg overflow-auto text-xs font-mono text-white-80 custom-scrollbar"
-               style={{ 
-                 background: 'rgba(0, 0, 0, 0.3)', 
-                 maxHeight: '240px',
-                 whiteSpace: 'pre-wrap'
-               }}>
+          <pre
+            className="p-4 rounded-lg overflow-auto text-xs font-mono text-white-80 custom-scrollbar"
+            style={{
+              background: 'rgba(0,0,0,0.35)',
+              maxHeight: '380px',
+              width: '100%',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              overflowX: 'hidden'
+            }}
+          >
             {formatReportData(reportData)}
           </pre>
         </div>

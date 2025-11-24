@@ -11,6 +11,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import DatePicker from 'react-datepicker';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import AlertAnalyzer from './AlertAnalyzer';
+import CriticalAlertModal from './CriticalAlertModal';
 import NotificationSystem from './NotificationSystem';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -153,7 +154,11 @@ const SecurityAnalystView = ({
   
   // Alert Monitoring Hook
   const {
+    criticalAlert,
     notifications,
+    handleAcknowledge,
+    handleEscalate,
+    handleDismiss,
     handleMarkAsRead,
     handleClearAll,
     handleViewDetails
@@ -229,6 +234,20 @@ const SecurityAnalystView = ({
 
   return (
     <div className="space-y-6">
+      {/* Critical Alert Modal */}
+            <CriticalAlertModal
+              alert={criticalAlert}
+              onClose={handleDismiss}
+              onAcknowledge={handleAcknowledge}
+              onEscalate={handleEscalate}
+            />
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr',  // two equal columns
+              gap: '1.5rem',
+              width: '100%',
+              alignItems: 'start'              // aligns items vertically top
+            }}></div>
 
       {/* ====================================================================== */}
       {/* SYSTEM STATISTICS CARDS */}
@@ -406,7 +425,7 @@ const SecurityAnalystView = ({
         </div>
       </div>
 
-      {/* ====================================================================== */}
+            {/* ====================================================================== */}
             {/* USER BEHAVIOR & DNS ANALYTICS - NEW SECTION WITH TWO COLUMNS */}
             {/* ====================================================================== */}
             <div style={{ 
